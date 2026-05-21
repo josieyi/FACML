@@ -7,14 +7,14 @@ This repository provides the implementation of FACML, a foundation-assisted cros
 
 ## Requirements
 
-- Python >= 3.9
-- PyTorch
-- PyTorch Geometric
-- RDKit
-- transformers
-- numpy
-- scikit-learn
-- tqdm
+- Python == 3.8
+- PyTorch == 1.8.1
+- torch_geometric == 2.2.0
+- torch_scatter == 2.0.8
+- rdkit == 2024.3.2
+- numpy == 1.24.3
+- scikit-learn == 1.3.2
+- tqdm == 4.67.1
 
 
 ## Usage
@@ -25,8 +25,8 @@ The main running parameters are as follows:
 | --- |-----------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------|
 | dataset | name of source dataset      | tox21         | `tox21, sider, toxcast-APR, toxcast-ATG, toxcast-BSK, toxcast-CEETOX, toxcast-CLD, toxcast-NVS, toxcast-OT, toxcast-Tanguay, toxcast-TOX21` |
 | test_dataset | name of target dataset      | sider         | `tox21, sider, toxcast-APR, toxcast-ATG, toxcast-BSK, toxcast-CEETOX, toxcast-CLD, toxcast-NVS, toxcast-OT, toxcast-Tanguay, toxcast-TOX21` |
-| inner_lr | inner-loop learning rate | `0.1` | - |
-| meta_lr | meta learning rate | `1e-3` | - |
+| inner_lr | inner-loop learning rate | `0.1` | `1e-2,5e-2,1e-1,5e-1` |
+| meta_lr | meta learning rate | `1e-3` | `1e-4,5e-4,1e-3,5e-3,1e-2` |
 | n_support | number of support molecules | `10`            | `1, 10`                                                                                                                                     |
 | n_query | number of query molecules   | `16`            | -                                                                                                                                           |
 | gpu | which GPU to use            | `0`             | -                                                                                                                                           |
