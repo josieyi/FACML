@@ -68,7 +68,7 @@ def main():
     set_seed(args.random_seed)
     logger, logger_path = initialize_exp(args)
     runner = Runner(args, logger_path)
-    result = runner.run()
+    runner.run()
 
 
 if __name__ == '__main__':

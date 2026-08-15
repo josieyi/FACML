@@ -211,7 +211,6 @@ class GNN(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.x_embedding1.weight.data)
         torch.nn.init.xavier_uniform_(self.x_embedding2.weight.data)
 
-        ###List of MLPs
         self.gnns = torch.nn.ModuleList()
         for layer in range(num_layer):
             if gnn_type == "gin":
@@ -223,7 +222,6 @@ class GNN(torch.nn.Module):
             elif gnn_type == "graphsage":
                 self.gnns.append(GraphSAGEConv(emb_dim))
 
-        ###List of batchnorms
         self.use_batch_norm = batch_norm
         if self.use_batch_norm:
             self.batch_norms = torch.nn.ModuleList()
@@ -247,7 +245,6 @@ class GNN(torch.nn.Module):
             if self.use_batch_norm:
                 h = self.batch_norms[layer](h)
             if layer == self.num_layer - 1:
-                # remove relu for the last layer
                 h = F.dropout(h, self.drop_ratio, training=self.training)
             else:
                 h = F.dropout(F.relu(h), self.drop_ratio, training=self.training)
@@ -268,66 +265,10 @@ class GNN(torch.nn.Module):
         return node_representation
 
 
-class GNN_Encoder_Frozen(torch.nn.Module):
-
-
-    def __init__(self, num_layer, emb_dim,
-                 JK="last", drop_ratio=0,
-                 graph_pooling="mean", gnn_type="gin", batch_norm=True, load_path=None):
-        super(GNN_Encoder_Frozen, self).__init__()
-        self.num_layer = num_layer
-        self.drop_ratio = drop_ratio
-        self.JK = JK
-        self.emb_dim = emb_dim
-        self.num_workers = 2
-
-        if self.num_layer < 2:
-            raise ValueError("Number of GNN layers must be greater than 1.")
-
-        self.gnn = GNN(num_layer, emb_dim, JK, drop_ratio, gnn_type=gnn_type, batch_norm=batch_norm)
-        if load_path is not None:
-            self.gnn.load_state_dict(torch.load(load_path, map_location=torch.device('cpu')))
-            for param in self.gnn.parameters():
-                param.requires_grad = False
-        # Different kind of graph pooling
-        if graph_pooling == "sum":
-            self.pool = global_add_pool
-        elif graph_pooling == "mean":
-            self.pool = global_mean_pool
-        elif graph_pooling == "max":
-            self.pool = global_max_pool
-        elif graph_pooling == "attention":
-            if self.JK == "concat":
-                self.pool = GlobalAttention(gate_nn=torch.nn.Linear((self.num_layer + 1) * emb_dim, 1))
-            else:
-                self.pool = GlobalAttention(gate_nn=torch.nn.Linear(emb_dim, 1))
-        elif graph_pooling[:-1] == "set2set":
-            set2set_iter = int(graph_pooling[-1])
-            if self.JK == "concat":
-                self.pool = Set2Set((self.num_layer + 1) * emb_dim, set2set_iter)
-            else:
-                self.pool = Set2Set(emb_dim, set2set_iter)
-        else:
-            raise ValueError("Invalid graph pooling type.")
-
-    def forward(self, *argv):
-        if len(argv) == 4:
-            x, edge_index, edge_attr, batch = argv[0], argv[1], argv[2], argv[3]
-        elif len(argv) == 1:
-            data = argv[0]
-            x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
-        else:
-            raise ValueError("unmatched number of arguments.")
-
-        node_representation = self.gnn(x, edge_index, edge_attr)
-        graph_representation = self.pool(node_representation, batch)
-
-        return graph_representation
-
-
 class GNN_with_Adapter(torch.nn.Module):
 
-    def __init__(self, num_layer, emb_dim, JK="last", drop_ratio=0, gnn_type="gin", batch_norm=True, adapter_hidden_dim=100, layer_norm=False):
+    def __init__(self, num_layer, emb_dim, JK="last", drop_ratio=0, gnn_type="gin",
+                 batch_norm=True, adapter_hidden_dim=100, layer_norm=False):
         super(GNN_with_Adapter, self).__init__()
 
         self.emb_dim = emb_dim
@@ -346,7 +287,6 @@ class GNN_with_Adapter(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.x_embedding1.weight.data)
         torch.nn.init.xavier_uniform_(self.x_embedding2.weight.data)
 
-        ###List of MLPs
         self.gnns = torch.nn.ModuleList()
         for layer in range(num_layer):
             if gnn_type == "gin":
@@ -414,7 +354,7 @@ class GNN_with_Adapter(torch.nn.Module):
                 h = F.relu(h)
                 h = self.following_up_projectors[layer - 1](h)
             
-            h = original_h + h # skip connection
+            h = original_h + h
 
             if self.use_layer_nom:
                 h = self.layer_norms[layer](h)
@@ -441,6 +381,77 @@ class GNN_with_Adapter(torch.nn.Module):
             node_representation = torch.sum(torch.cat(h_list, dim=0), dim=0)[0]
 
         return node_representation
+
+
+class GNN_Encoder_Frozen(torch.nn.Module):
+    """
+    Extension of GIN to incorporate edge information by concatenation.
+
+    Args:
+        num_layer (int): the number of GNN layers
+        emb_dim (int): dimensionality of embeddings
+        num_tasks (int): number of tasks in multi-task learning scenario
+        drop_ratio (float): dropout rate
+        JK (str): last, concat, max or sum.
+        graph_pooling (str): sum, mean, max, attention, set2set
+        gnn_type: gin, gcn, graphsage, gat
+
+    See https://arxiv.org/abs/1810.00826
+    JK-net: https://arxiv.org/abs/1806.03536
+    """
+
+    def __init__(self, num_layer, emb_dim,
+                 JK="last", drop_ratio=0,
+                 graph_pooling="mean", gnn_type="gin", batch_norm=True, load_path=None):
+        super(GNN_Encoder_Frozen, self).__init__()
+        self.num_layer = num_layer
+        self.drop_ratio = drop_ratio
+        self.JK = JK
+        self.emb_dim = emb_dim
+        self.num_workers = 2
+
+        if self.num_layer < 2:
+            raise ValueError("Number of GNN layers must be greater than 1.")
+
+        self.gnn = GNN(num_layer, emb_dim, JK, drop_ratio, gnn_type=gnn_type, batch_norm=batch_norm)
+        if load_path is not None:
+            self.gnn.load_state_dict(torch.load(load_path, map_location=torch.device('cpu')))
+            for param in self.gnn.parameters():
+                param.requires_grad = False
+        # Different kind of graph pooling
+        if graph_pooling == "sum":
+            self.pool = global_add_pool
+        elif graph_pooling == "mean":
+            self.pool = global_mean_pool
+        elif graph_pooling == "max":
+            self.pool = global_max_pool
+        elif graph_pooling == "attention":
+            if self.JK == "concat":
+                self.pool = GlobalAttention(gate_nn=torch.nn.Linear((self.num_layer + 1) * emb_dim, 1))
+            else:
+                self.pool = GlobalAttention(gate_nn=torch.nn.Linear(emb_dim, 1))
+        elif graph_pooling[:-1] == "set2set":
+            set2set_iter = int(graph_pooling[-1])
+            if self.JK == "concat":
+                self.pool = Set2Set((self.num_layer + 1) * emb_dim, set2set_iter)
+            else:
+                self.pool = Set2Set(emb_dim, set2set_iter)
+        else:
+            raise ValueError("Invalid graph pooling type.")
+
+    def forward(self, *argv):
+        if len(argv) == 4:
+            x, edge_index, edge_attr, batch = argv[0], argv[1], argv[2], argv[3]
+        elif len(argv) == 1:
+            data = argv[0]
+            x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        else:
+            raise ValueError("unmatched number of arguments.")
+
+        node_representation = self.gnn(x, edge_index, edge_attr)
+        graph_representation = self.pool(node_representation, batch)
+
+        return graph_representation
 
 
 class GNN_Encoder_with_Adapter(torch.nn.Module):

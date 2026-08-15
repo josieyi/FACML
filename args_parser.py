@@ -19,7 +19,7 @@ def args_parser():
     parser.add_argument('--exp_name', default='run', type=str, help='Experiment name')
     parser.add_argument('--dump_path', default='logs/', type=str, help='Experiment dump path')
     parser.add_argument('--exp_id', default='', type=str, help='Experiment ID')
-    parser.add_argument('--gpu', default='4', type=str)
+    parser.add_argument('--gpu', default='0', type=str)
     parser.add_argument('--random_seed', default=0, type=int)
 
     parser.add_argument('--data_root', default='./data/', type=str)
@@ -60,6 +60,12 @@ def args_parser():
     parser.add_argument('--n_support', default=10, type=int)
     parser.add_argument('--n_query', default=16, type=int)
     parser.add_argument('--eval_step', default=100, type=int)
+    parser.add_argument('--cost_only', default=False, type=str2bool,
+                        help='Run a short cost-measurement job instead of a full experiment.')
+    parser.add_argument('--cost_episodes', default=20, type=int,
+                        help='Number of training episodes used when --cost_only is true.')
+    parser.add_argument('--cost_eval_tasks', default=5, type=int,
+                        help='Number of target tasks used for test-time cost when --cost_only is true.')
 
     parser.add_argument('--nce_t', default=0.08, type=float)
     parser.add_argument('--contr_w', default=0.05, type=float)

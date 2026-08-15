@@ -1,7 +1,8 @@
-import csv
+
 import logging
 import math
 import os
+import time
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -390,13 +391,21 @@ class MetaLearner:
         self.opt.step()
         return loss_cls.item()
 
-    def test_step(self):
+    def test_step(self, return_cost=False, max_tasks=None):
 
         eval_dataset = self.test_dataset if self.test_dataset is not None else self.dataset
         eval_pv_bank = self.test_data_pv if self.test_dataset is not None else self.data_pv
 
         task_auc = {}
-        for task_i in self.target_eval_task_range:
+        task_times = []
+        task_range = list(self.target_eval_task_range)
+        if max_tasks is not None:
+            task_range = task_range[:max(0, int(max_tasks))]
+
+        for task_i in task_range:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            task_start = time.time()
             task_id = int(task_i)
 
             if self.test_dataset is not None:
@@ -458,12 +467,21 @@ class MetaLearner:
 
             if len(np.unique(y_true)) < 2:
                 task_auc[task_id] = np.nan
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                task_times.append(time.time() - task_start)
                 continue
 
             task_auc[task_id] = roc_auc_score(y_true, y_pred)
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            task_times.append(time.time() - task_start)
 
         valid_auc = [v for v in task_auc.values() if not np.isnan(v)]
         score = float(np.mean(valid_auc)) if len(valid_auc) > 0 else float('nan')
+        if return_cost:
+            return score, task_auc, {
+                'task_times': task_times,
+                'mean_task_time': float(np.mean(task_times)) if len(task_times) > 0 else float('nan'),
+            }
         return score, task_auc
-
-

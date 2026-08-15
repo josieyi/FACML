@@ -1,13 +1,12 @@
-import os.path as osp
+
 import pickle
 import re
-
+import os.path as osp
 import numpy as np
 import torch
 import tqdm
 from rdkit import Chem
 from torch_geometric.data import InMemoryDataset, Data
-
 from .mol_features import allowable_features
 
 

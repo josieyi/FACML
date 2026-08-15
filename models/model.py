@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import BertTokenizer, WordpieceTokenizer
 from SPMM.SPMM_models import SPMM
-from .base_encoder import GNN_Encoder_Frozen, GNN_Encoder_with_Adapter
+from .base_encoder import GNN_Encoder_with_Adapter, GNN_Encoder_Frozen
 from .relation import Context_Encoder
 
 

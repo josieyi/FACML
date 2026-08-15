@@ -110,7 +110,6 @@ class Context_Encoder(nn.Module):
             nn.Linear(in_dim // 2, in_dim),
         )
 
-
     def forward(self):
         raise NotImplementedError
 
